@@ -1,0 +1,30 @@
+#!/bin/bash
+########
+# Help #
+########
+Help()
+{
+   # Display Help
+   echo "Supported compilers and MPI implementations:"
+   echo "1. gcc+openmpi"
+}
+
+
+if [[ $1 == "gcc" ]]
+then
+  if [[ $2 == "openmpi" ]]
+  then
+    export CC=mpicc
+  else
+    echo "Not supported MPI implementation for $1 compiler"
+    exit 1  
+  fi
+elif [[ $1 == "help" ]]
+then
+  Help
+  exit 1
+else
+  echo "Not supported compiler"
+  exit 1
+fi
+export CANARD_DIR=${PWD}
