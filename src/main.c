@@ -9,7 +9,7 @@ int main() {
     int lim;
     int nbsize[3];
     int lmx;
-    int lxi, let, lze, nbc[2][3], ijk[3][3];
+    int lxi, let, lze, nbc[2][3], ijk[3][3], mcd[2][3];
     char filename[] = "canard.cfg";
     double *rfield;
     int nn, nz, m;
@@ -41,6 +41,10 @@ int main() {
     for (int i=0; i<2; i++)
         for (int j=0; j<3; j++)
             nbc[i][j] = BC_NON_REFLECTIVE;
+
+    for (int i=0; i<2; i++)
+        for (int j=0; j<3; j++)
+            mcd[i][j] = 0;
     
     rfield = safe_malloc(3*(lmx+1)*sizeof(double));
     for (int j=0; j<3; j++)
@@ -52,9 +56,9 @@ int main() {
     // numerics input parameters
     numerics_read_input(filename);
     // numerics initialization
-    numerics_init(lxi, let, lze, nbc, lim);
+    numerics_init(lxi, let, lze, nbc, lim, lmx, ijk, mcd);
     // numerics calculate derivative
-    numerics_deriv(rfield, lmx, lxi, let, lze, ijk, nn, nz, m, lim);
+    numerics_deriv(rfield, nn, nz, m);
     
     printf("rfield\n");
     for (int i=0; i<lmx+1; i++)

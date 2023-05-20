@@ -5,6 +5,7 @@
 #include "check.h"
 #include "parameters.h"
 #include "config_parser.h"
+#include "check_mpi.h"
 
 #define PI 3.1415926535897932384626433
 
@@ -14,13 +15,26 @@ struct t_blim {
     int z;
 };
 
+struct t_patch {
+    int lmx;
+    int lxi;
+    int let;
+    int lze;
+    int lim;
+    int ijk[3][3];
+    int nbc[2][3];
+    int mcd[2][3];
+};
+
 static struct t_blim blim;
+static struct t_patch patch;
 static double alphf, betf, fa, fb, fc, pfltk, pfltrbc;
 static double pbci[2][2][lmp+1], pbco[2][2][lmp+1];
 static double pbcot[2][2];
 static double albef[2][3][5];
 static double fbc[3][5];
 static int ndf[2][2][3];
+static double sap[lmp+1];
 
 static double *xu, *yu, *xl, *yl;
 
@@ -114,7 +128,8 @@ void numerics_read_input(char *filename) {
     pfltk *= PI;
 }
 
-void numerics_init(int lxi, int let, int lze, int nbc[2][3], int lim) {
+void numerics_init(int lxi, int let, int lze, int nbc[2][3], int lim, 
+	               int lmx, int ijk[3][3], int mcd[2][3]) {
 	int nstart, nend, istart, iend;
 
 	init_coeff();
@@ -163,20 +178,43 @@ void numerics_init(int lxi, int let, int lze, int nbc[2][3], int lim) {
         penta(yu, yl, istart, iend, nstart, nend, 1, lim);
     }
 
+    // fill domain minimal decomposition information for internal use
+    patch.lmx = lmx;
+    patch.lxi = lxi;
+    patch.let = let;
+    patch.lze = lze;
+    patch.lim = lim;
+    for (int i=0; i<3; i++)
+        for (int j=0; j<3; j++)
+            patch.ijk[i][j] = ijk[i][j];
+    for (int nn=0; nn<3; nn++)
+        for (int ip=0; ip<2; ip++)
+            patch.nbc[ip][nn] = nbc[ip][nn];
+    for (int nn=0; nn<3; nn++)
+        for (int ip=0; ip<2; ip++)
+            patch.mcd[ip][nn] = mcd[ip][nn];
+
 }
 
-void numerics_deriv(double *rfield, int lmx, 
-	                int lxi, int let, int lze, 
-	                int ijk[3][3], int nn, int nz, int m, int lim) {
+void numerics_deriv(double *rfield, int nn, int nz, int m) {
     
     int ustart, uend;
     int ntk    = 0;
     int nstart = ndf[0][0][nn];
     int nend   = ndf[0][1][nn];
+    int slim;
+    int lmx = patch.lmx;
+    int lxi = patch.lxi;
+    int let = patch.let;
+    int lze = patch.lze;
+    int lim = patch.lim;
+    int ijk[3][3];
+    for (int i=0; i<3; i++)
+        for (int j=0; j<3; j++)
+            ijk[i][j] = patch.ijk[i][j];
     int klim   = ijk[2][nn];
     int jlim   = ijk[1][nn];
     int ilim   = ijk[0][nn];
-    int slim;
     
     switch(nn) {
         case 0:
@@ -393,6 +431,205 @@ void numerics_deriv(double *rfield, int lmx,
     	}
     }
     
+}
+
+void numerics_halo_exch(double *rfield, int nt, int nrt, int n45, int m) {
+
+    MPI_Request ireq[MAX_MPI_REQUESTS];
+    MPI_Status  ista[MAX_MPI_REQUESTS];
+    int ir = 0;
+    int slim;
+    int dim2;
+    int lmx = patch.lmx;
+    int lxi = patch.lxi;
+    int let = patch.let;
+    int ijk[3][3];
+    for (int i=0; i<3; i++)
+        for (int j=0; j<3; j++)
+            ijk[i][j] = patch.ijk[i][j];
+    int nbc[2][3];
+    for (int nn=0; nn<3; nn++)
+        for (int ip=0; ip<2; ip++)
+            nbc[ip][nn] = patch.nbc[ip][nn];
+    int mcd[2][3];
+    for (int nn=0; nn<3; nn++)
+        for (int ip=0; ip<2; ip++)
+            mcd[ip][nn] = patch.mcd[ip][nn];
+    
+    for (int nn=0; nn<3; nn++) {
+    	int nz = ( 1 - nrt ) * nn;
+        if (nt == 0) {
+        	dim2 = 2;
+            switch(nn) {
+                case 0:
+                    send = send01;
+                    recv = recv01;
+                    slim = blim.x;
+                    break;
+                case 1:
+            	    send = send02;
+                    recv = recv02;
+                    slim = blim.y;
+                    break;
+                case 2:
+                    send = send03;
+                    recv = recv03;
+                    slim = blim.z;
+                    break;
+            }
+        } else {
+        	dim2 = 3;
+            switch(nn) {
+                case 0:
+                    send = send11;
+                    recv = recv11;
+                    slim = blim.x;
+                    break;
+                case 1:
+            	    send = send12;
+            	    recv = recv12;
+            	    slim = blim.y;
+            	    break;
+                case 2:
+                    send = send13;
+                    recv = recv13;
+                    slim = blim.z;
+                    break;
+            }
+        }
+        
+        for (int ip=0; ip<2; ip++) {
+            int iq     = 1 - ip;
+            int istart = ip * ijk[0][nn];
+            int iend   = 1 - 2 * ip;
+
+            double ra0;
+            int ii;
+            switch(nbc[ip][nn]) {
+                case(BC_INTER_STRAIGHT):
+                    ra0 = 0.0;
+                    ii = 1;
+                    break;
+                case(BC_INTER_SUBDOMAINS):
+                    ra0 = 0.0;
+                    ii = 0;
+                	break;
+                case(BC_PERIODIC):
+                    ra0 = (double)n45;
+                    ii = 1;
+                	break;
+            }
+            
+            if (ndf[nt][ip][nn]) {
+            	// pack buffer
+                for (int k=0; k<=ijk[2][nn]; k++) {
+                    int kpp = k * (ijk[1][nn] + 1);
+                    for (int j=0; j<=ijk[1][nn]; j++) {
+                        int jkk = kpp + j;
+                        int lll = indx3(istart, j, k, nn, lxi, let);
+                        double res = ra0 * rfield[lll+nz*(lmx+1)];
+                        for (int i=0; i<=lmp; i++) {
+                            lll = indx3(istart+iend*(i+ii), j, k, nn, lxi, let);
+                            sap[i] = rfield[lll+nz*(lmx+1)];
+                        }
+
+                        int f4 = jkk + 0*slim + ip*(slim*dim2);
+                        send[f4] = 0.0;
+                        for (int f=0; f<=lmp; f++)
+                            send[f4] += (pbco[nt][0][f] * sap[f]);
+                        send[f4] -= (res * pbcot[nt][0]);
+                        
+                        f4 = jkk + 1*slim + ip*(slim*dim2);
+                        send[f4] = 0.0;
+                        for (int f=0; f<=lmp; f++)
+                            send[f4] += (pbco[nt][1][f] * sap[f]);
+                        send[f4] -= (res * pbcot[nt][1]);
+                        
+                        f4 = jkk + (nt+1)*slim + ip*(slim*dim2);
+                        send[f4] = send[f4] + nt * (sap[0] - res - send[f4]);
+
+                    }
+                }
+
+                // halo exchange
+                safe_mpi( MPI_Isend(send, slim*dim2, MPI_DOUBLE, mcd[ip][nn],
+                                         iq, MPI_COMM_WORLD, &ireq[ir]) );
+                ir++,
+                safe_mpi( MPI_Irecv(recv, slim*dim2, MPI_DOUBLE, mcd[ip][nn],
+                                         ip, MPI_COMM_WORLD, &ireq[ir]) );
+                ir++;
+                
+            }
+
+        }  
+    }
+    if (ir > 0)
+        safe_mpi( MPI_Waitall(ir+1, ireq, ista) );
+
+    // periodic boundary conditions
+    if (n45 == N45go) {
+
+        for (int nn=0; nn<3; nn++) {
+            int nz = (1 - nrt) * nn;
+            if (nt == 0) {
+                dim2 = 2;
+                switch(nn) {
+                    case 0:
+                        recv = recv01;
+                        slim = blim.x;
+                        break;
+                    case 1:
+                        recv = recv02;
+                        slim = blim.y;
+                        break;
+                    case 2:
+                        recv = recv03;
+                        slim = blim.z;
+                        break;
+                }
+            } else {
+                dim2 = 3;
+                switch(nn) {
+                    case 0:
+                        recv = recv11;
+                        slim = blim.x;
+                        break;
+                    case 1:
+            	        recv = recv12;
+            	        slim = blim.y;
+            	        break;
+                    case 2:
+                        recv = recv13;
+                        slim = blim.z;
+                        break;
+                }
+            }
+            
+            for (int ip=0; ip<2; ip++) {
+                int istart = ip*ijk[0][nn];
+                if (nbc[ip][nn] == BC_PERIODIC) {
+                    for (int k=0; k<=ijk[2][nn]; k++) {
+                        int kpp = k * (ijk[1][nn] + 1);
+                        for (int j=0; j<=ijk[1][nn]; j++) {
+                            int jkk = kpp + j;
+                            int lll = indx3(istart, j, k, nn, lxi, let);
+
+                            int f4 = jkk + 0*slim + ip*(slim*dim2) + m*(2*slim*dim2);
+                            recv[f4] += (rfield[lll+nz*(lmx+1)] * pbcot[nt][0]);
+
+                            f4 = jkk * 1*slim + ip*(slim*dim2) + m*(2*slim*dim2);
+                            recv[f4] += (rfield[lll+nz*(lmx+1)] * pbcot[nt][1]);
+
+                            f4 = jkk + (nt+1)*slim + ip*(slim*dim2) + m*(2*slim*dim2);
+                            recv[f4] += (nt * rfield[lll+nz*(lmx+1)]);
+                        }
+                    }
+                }
+            }
+            
+        }
+    }
+
 }
 
 static void init_coeff() {

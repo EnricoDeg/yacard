@@ -25,12 +25,31 @@ void numerics_free();
 
 void numerics_read_input(char *filename);
 
-void numerics_init(int lxi, int let, int lze, int nbc[2][3], int lim);
+void numerics_init(int lxi, int let, int lze, int nbc[2][3], int lim, 
+	               int lmx, int ijk[3][3], int mcd[2][3]);
 
-void numerics_deriv(double *rfield, int lmx, 
-	                int lxi, int let, int lze, 
-	                int ijk[3][3], int nn, int nz, int m,
-	                int lim);
+/**
+ * derivative with compact finite difference scheme
+ *
+ * @param[in,out] rfield     full data structure of conservative variables
+ * @param[in]     nn         direction of derivative
+ * @param[in]     nz         component of field
+ * @param[in]     m          conservative variable to derive
+ * 
+ */
+void numerics_deriv(double *rfield, int nn, int nz, int m);
+
+/**
+ * halo exchange before deriving or filtering
+ *
+ * @param[in,out] rfield     full data structure of conservative variables
+ * @param[in]     nt         before derivative or filtering
+ * @param[in]     nrt        one or all components
+ * @param[in]     n45        extra for periodic BC
+ * @param[in]     m          conservative variable for halo exchange
+ * 
+ */
+void numerics_halo_exch(double *rfield, int nt, int nrt, int n45, int m);
 
 // private
 static void init_coeff();
