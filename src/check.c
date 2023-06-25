@@ -6,7 +6,7 @@ void *safe_malloc(int size) {
     void *ptr = malloc(size);
 
     if (!ptr && (size > 0)) {
-      perror("malloc failed!");
+      fprintf(stderr, "malloc failed!");
       exit(EXIT_FAILURE);
     }
 
@@ -37,3 +37,8 @@ void safe_mpi(int error_code) {
 
 }
 
+void finish(char * component, char * function) {
+    fprintf(stderr,"Error in %s component: %s\n", component, function);
+    exit(EXIT_FAILURE);
+
+}
