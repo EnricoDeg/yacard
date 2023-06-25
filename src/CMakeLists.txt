@@ -10,6 +10,8 @@ set(SOURCE_EXE  check.c
                 utils.c
                 domdcomp.c
                 numerics.c
+                grid_generator_regular.c
+                grid_generator.c
                 main.c)
 
 add_executable(canard ${SOURCE_EXE})
