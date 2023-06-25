@@ -1,7 +1,6 @@
 #include "domdcomp.h"
 #include "check.h"
 #include "config_parser.h"
-#include "check_mpi.h"
 #include "parameters.h"
 
 static int nblocks;

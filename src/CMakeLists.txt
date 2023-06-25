@@ -6,7 +6,6 @@ find_path(CONFIG_INCLUDE "libconfig.h")
 include_directories(${CONFIG_INCLUDE})
 
 set(SOURCE_EXE  check.c
-                check_mpi.c
                 config_parser.c
                 utils.c
                 domdcomp.c

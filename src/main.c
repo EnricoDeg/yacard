@@ -3,8 +3,10 @@
 #include "numerics.h"
 #include "parameters.h"
 #include "check.h"
+#include "domdcomp.h"
 
 int main() {
+    safe_mpi( MPI_Init(NULL,NULL) );
 	// values to be initialize for the dwarf
     int lim;
     int nbsize[3];
@@ -13,6 +15,9 @@ int main() {
     char filename[] = "canard.cfg";
     double *rfield;
     int nn, nz, m;
+
+    int nblocks = 0;
+    int mpro = 0;
     
     nn = 0;
     nz = 0;
@@ -51,23 +56,42 @@ int main() {
         for (int i=0; i<lmx+1; i++)
             rfield[i+j*(lmx+1)] = 1.0;
     
-    // numerics allocation
+    /* 
+     * Components allocation
+    */
     numerics_allocate(lim, nbsize, lmx);
-    // numerics input parameters
+    domdcomp_allocate(nblocks);
+
+    /* 
+     * Components read input
+    */
     numerics_read_input(filename);
-    // numerics initialization
+    domdcomp_read_input(filename);
+
+    /* 
+     * Components initialization
+    */
+    domdcomp_init();
     numerics_init(lxi, let, lze, nbc, lim, lmx, ijk, mcd);
+
     // numerics calculate derivative
     numerics_deriv(rfield, nn, nz, m);
-    
+
+/*    
     printf("rfield\n");
     for (int i=0; i<lmx+1; i++)
         printf("%d, %f\n", i, rfield[i]);
+*/
     
-    // numerics destroy
+    /* 
+     * Components destroy
+    */
     numerics_free();
+    domdcomp_free();
     
     safe_free(rfield);
+
+    safe_mpi( MPI_Finalize() );
     
     return 0;
 }

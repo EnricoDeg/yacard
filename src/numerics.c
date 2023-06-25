@@ -5,7 +5,6 @@
 #include "check.h"
 #include "parameters.h"
 #include "config_parser.h"
-#include "check_mpi.h"
 
 #define PI 3.1415926535897932384626433
 
