@@ -33,6 +33,26 @@ double config_read_float(char *variable) {
     return value;
 }
 
+void config_read_array_int(char *variable, int *array) {
+    
+    setting = config_lookup(&cfg, variable);
+    if(setting == NULL) {
+        perror("Error reading variable in config file\n");
+        config_destroy(&cfg);
+        exit(EXIT_FAILURE);
+    }
+
+    if(config_setting_is_array(setting) != CONFIG_TRUE) {
+        perror("Variable is NOT array\n");
+        config_destroy(&cfg);
+        exit(EXIT_FAILURE);
+    }
+
+    int array_length = config_setting_length(setting);
+    for (int i=0; i<array_length; i++)
+        array[i] = config_setting_get_int_elem(setting, i);
+}
+
 void config_close() {
     config_destroy(&cfg);
 }
