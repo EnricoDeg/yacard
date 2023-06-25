@@ -9,6 +9,7 @@ set(SOURCE_EXE  check.c
                 check_mpi.c
                 config_parser.c
                 utils.c
+                domdcomp.c
                 numerics.c
                 main.c)
 
