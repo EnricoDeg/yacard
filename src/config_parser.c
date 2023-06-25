@@ -33,6 +33,16 @@ double config_read_float(char *variable) {
     return value;
 }
 
+int config_read_int(char *variable) {
+    int value;
+    if(!config_setting_lookup_int(setting, variable, &value)) {
+        perror("Error reading variable component in config file\n");
+        config_destroy(&cfg);
+        exit(EXIT_FAILURE);
+    }
+    return value;
+}
+
 void config_read_array_int(char *variable, int *array) {
     
     setting = config_lookup(&cfg, variable);
