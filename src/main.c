@@ -4,6 +4,7 @@
 #include "parameters.h"
 #include "check.h"
 #include "domdcomp.h"
+#include "grid_generator.h"
 
 int main() {
     safe_mpi( MPI_Init(NULL,NULL) );
@@ -67,6 +68,7 @@ int main() {
     */
     numerics_read_input(filename);
     domdcomp_read_input(filename);
+    grid_generator_read_input(filename);
 
     /* 
      * Components initialization
