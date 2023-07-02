@@ -2,6 +2,7 @@
 #include "check.h"
 #include "config_parser.h"
 #include "parameters.h"
+#include "data_struct.h"
 
 static int nblocks;
 static int mpro;
@@ -17,7 +18,7 @@ static int nbc[3][2];
 static int mcd[3][2];
 static int ijk[3][3];
 
-static int *nbpc;
+static struct t_blocks nbpc;
 static int *mo;
 static int *lximb;
 static int *letmb;
@@ -33,6 +34,7 @@ static int *imjl;
 static int *jltag;
 static int *jjp;
 static int *jjl;
+static int *lpos;
 static char component[] = "domdcomp";
 
 void domdcomp_allocate(int n_blocks) {
@@ -43,7 +45,9 @@ void domdcomp_allocate(int n_blocks) {
 	nblocks = n_blocks;
 	int lpp = 8*nblocks+7;
 	int lqq = 12*nblocks+11;
-    nbpc    = safe_malloc(3*(nblocks+1)*sizeof(int));
+    nbpc.coordinate[0].ptr = safe_malloc((nblocks+1)*sizeof(int));
+    nbpc.coordinate[1].ptr = safe_malloc((nblocks+1)*sizeof(int));
+    nbpc.coordinate[2].ptr = safe_malloc((nblocks+1)*sizeof(int));
     mo      = safe_malloc((nblocks+1)*sizeof(int));
     lximb   = safe_malloc((nblocks+1)*sizeof(int));
     letmb   = safe_malloc((nblocks+1)*sizeof(int));
@@ -51,6 +55,7 @@ void domdcomp_allocate(int n_blocks) {
     lxim    = safe_malloc((mpro+1)*sizeof(int));
     letm    = safe_malloc((mpro+1)*sizeof(int));
     lzem    = safe_malloc((mpro+1)*sizeof(int));
+    lpos    = safe_malloc((mpro+1)*sizeof(int));
     nbbc    = safe_malloc(2*3*(nblocks+1)*sizeof(int));
     mbcd    = safe_malloc(2*3*(nblocks+1)*sizeof(int));
     imjp    = safe_malloc((lpp+1)*sizeof(int));
@@ -62,7 +67,9 @@ void domdcomp_allocate(int n_blocks) {
 }
 
 void domdcomp_free() {
-    safe_free(nbpc);
+    safe_free(nbpc.coordinate[0].ptr);
+    safe_free(nbpc.coordinate[1].ptr);
+    safe_free(nbpc.coordinate[2].ptr);
     safe_free(mo);
     safe_free(lximb);
     safe_free(letmb);
@@ -81,14 +88,22 @@ void domdcomp_free() {
 }
 
 void domdcomp_read_input(char *filename) {
+	int  *tmp_nbpc;
+	tmp_nbpc = safe_malloc(3*(nblocks+1)*sizeof(int));
     config_open(filename, component);
-    config_read_array_int("domdcomp.nbpc", nbpc);
+    config_read_array_int("domdcomp.nbpc", tmp_nbpc);
     config_read_array_int("domdcomp.lximb", lximb);
     config_read_array_int("domdcomp.letmb", letmb);
     config_read_array_int("domdcomp.lzemb", lzemb);
     config_read_array_int("domdcomp.nbbc", nbbc);
     config_read_array_int("domdcomp.mbcd", mbcd);
     config_close();
+    for (int i=0; i<nblocks+1; i++) {
+        nbpc.coordinate[0].ptr[i] = tmp_nbpc[i];
+        nbpc.coordinate[1].ptr[i] = tmp_nbpc[i+(nblocks+1)];
+        nbpc.coordinate[2].ptr[i] = tmp_nbpc[i+2*(nblocks+1)];
+    }
+    safe_free(tmp_nbpc);
 }
 
 void domdcomp_init() {
@@ -98,9 +113,9 @@ void domdcomp_init() {
 
     mo[0] = 0;
     for (int i=1; i<=nblocks; i++)
-        mo[i] = mo[i-1] + nbpc[i-1]
-                        + nbpc[i-1+(nblocks+1)]
-                        + nbpc[i-1+2*(nblocks+1)];
+        mo[i] = mo[i-1] + nbpc.coordinate[0].ptr[i-1]
+                        + nbpc.coordinate[1].ptr[i-1]
+                        + nbpc.coordinate[2].ptr[i-1];
 
     for (int i=0; i<=nblocks; i++) {
         if (myid >= mo[i])
@@ -111,12 +126,12 @@ void domdcomp_init() {
     leto = letmb[mb];
     lzeo = lzemb[mb];
 
-    ijkp[0] = (myid - mo[mb])%(nbpc[mb]);
+    ijkp[0] = (myid - mo[mb])%(nbpc.coordinate[0].ptr[mb]);
     ijkp[1] = (myid - mo[mb] / 
-    	              nbpc[mb])%(nbpc[mb+(nblocks+1)]);
+    	              nbpc.coordinate[0].ptr[mb])%(nbpc.coordinate[1].ptr[mb]);
     ijkp[2] = (myid - mo[mb] / 
-    	             (nbpc[mb]*nbpc[mb+(nblocks+1)]))%
-                     (nbpc[mb+2*(nblocks+1)]);
+    	             (nbpc.coordinate[0].ptr[mb] * nbpc.coordinate[1].ptr[mb]))%
+                     (nbpc.coordinate[2].ptr[mb]);
 
     for (int nn=0; nn<3; nn++) {
         int nstart = ((nn+1)%3);
@@ -126,7 +141,7 @@ void domdcomp_init() {
             if (mm == -1) {
                 mmcd[nn][ip] = -1;
             } else {
-                mmcd[nn][ip] = idsd3((1 - ip) * (nbpc[mm+nn*(nblocks+1)] - 1),
+                mmcd[nn][ip] = idsd3((1 - ip) * (nbpc.coordinate[nn].ptr[mm] - 1),
                                      ijkp[nstart],
                                      ijkp[nend],
                                      mm,
@@ -144,15 +159,15 @@ void domdcomp_init() {
                 break;
             case 1:
                 ll = leto;
-                mp = nbpc[mb];
+                mp = nbpc.coordinate[0].ptr[mb];
                 break;
             case 2:
                 ll = lzeo;
-                mp = nbpc[mb] * nbpc[mb+(nblocks+1)];
+                mp = nbpc.coordinate[0].ptr[mb] * nbpc.coordinate[1].ptr[mb];
                 break;
         }
         int lp = ijkp[nn];
-        int ma = nbpc[mb+nn*(nblocks+1)];
+        int ma = nbpc.coordinate[nn].ptr[mb];
         int l;
         if (ma == 1) {
             l = ll;
@@ -242,26 +257,88 @@ void domdcomp_init() {
     nbsize[1] = (ijk[1][1] + 1) * (ijk[2][1] + 1);
     nbsize[2] = (ijk[1][2] + 1) * (ijk[2][2] + 1);
 
-    printf("lxi = %d\n", lxi);
-    printf("let = %d\n", let);
-    printf("lze = %d\n", lze);
-    
+    for (int i=0; i<=nblocks; i++) {
+        lpos[mo[i]] = 0;
+        for (int j=1; j<nbpc.coordinate[0].ptr[i]; j++) {
+            int mp = mo[i] + j;
+            lpos[mp] = lpos[mp-1] + lxim[mp-1] + 1;
+        }
+        int jp = nbpc.coordinate[0].ptr[i];
+        for (int j=1; j<nbpc.coordinate[1].ptr[i]; j++) {
+        	for (int k=0; k<nbpc.coordinate[0].ptr[i]; k++) {
+                int mp = mo[i] + j * jp + k;
+                lpos[mp] = lpos[mp-jp] + (lximb[i] + 1) * 
+                                         (letmb[mp-jp] + 1);
+        	}
+        }
+        int kp = nbpc.coordinate[0].ptr[i] * nbpc.coordinate[1].ptr[i];
+        for (int j=1; j<nbpc.coordinate[2].ptr[i]; j++) {
+            for (int k=0; k<nbpc.coordinate[1].ptr[i]; k++) {
+        	    for (int l=0; l<nbpc.coordinate[0].ptr[i]; l++) {
+                    int mp = mo[i] + j * kp + k * jp + l;
+                    lpos[mp] = lpos[mp-kp] + (lximb[i] + 1) *
+                                             (letmb[i] + 1) *
+                                             (lzemb[mp-kp] + 1);
+        		}
+        	}
+        }
+    }
 
+}
+
+int  domdcomp_get_my_block() {
+    return mb;
+}
+
+int  domdcomp_get_subdomain_points_full() {
+    return lmx;
+}
+
+int * domdcomp_get_blocks_master_procs() {
+    return mo;
+}
+
+int * domdcomp_get_procs_ini_pos() {
+    return lpos;
+}
+
+int * domdcomp_get_all_subdomain_points_x() {
+    return lxim;
+}
+
+int * domdcomp_get_all_subdomain_points_y() {
+    return letm;
+}
+
+int * domdcomp_get_all_subdomain_points_z() {
+    return lzem;
+}
+
+int   domdcomp_get_my_block_points_x() {
+    return lxio;
+}
+
+int   domdcomp_get_my_block_points_y() {
+    return leto;
+}
+
+int   domdcomp_get_my_block_points_z() {
+    return lzeo;
 }
 
 static int idsd3(int i, int j, int k, int mm, int nn) {
     switch(nn) {
         case 0:
-            return mo[mm] + ( k * nbpc[mm+1*(nblocks+1)] + j ) *
-                            nbpc[mm] + i; 
+            return mo[mm] + ( k * nbpc.coordinate[1].ptr[mm] + j ) *
+                            nbpc.coordinate[0].ptr[mm] + i; 
             break;
         case 1:
-            return mo[mm] + ( j * nbpc[mm+1*(nblocks+1)] + i ) *
-                            nbpc[mm] + k;
+            return mo[mm] + ( j * nbpc.coordinate[1].ptr[mm] + i ) *
+                            nbpc.coordinate[0].ptr[mm] + k;
             break;
         case 2:
-            return mo[mm] + ( i * nbpc[mm+1*(nblocks+1)] + k ) *
-                            nbpc[mm] + j;
+            return mo[mm] + ( i * nbpc.coordinate[1].ptr[mm] + k ) *
+                            nbpc.coordinate[0].ptr[mm] + j;
             break;
     }
 }
