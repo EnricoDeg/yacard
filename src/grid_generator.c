@@ -20,11 +20,13 @@ void grid_generator_read_input(char *filename) {
     }
 }
 
-void grid_generator_go(int mbk, int mb, int lmx, int *mo) {
+void grid_generator_go(int mbk, int mb, int lmx, int *mo, int *lpos, int *lxim,
+                       int *letm, int *lzem, int lxio, int leto) {
     static char function[] = "grid_generator_go";
     
     if (grid_type == GRID_REGULAR) {
-        grid_generator_regular_go(mbk, mb, lmx, mo);
+        grid_generator_regular_go(mbk, mb, lmx, mo, lpos, lxim,
+                                  letm, lzem, lxio, leto);
     } else {
         finish(component, function);
     }
