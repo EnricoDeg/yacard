@@ -30,13 +30,19 @@ int main() {
      * Components initialization
      */
     domdcomp_init();
+    int lxi = domdcomp_get_subdomain_points_x();
+    int let = domdcomp_get_subdomain_points_y();
+    int lze = domdcomp_get_subdomain_points_z();
+    int lmx = domdcomp_get_subdomain_points_full();
+    struct t_subdomain_boundary nbc = domdcomp_get_my_block_bc();
+    struct t_subdomain_boundary mcd = domdcomp_get_my_block_bp();
+
 //    numerics_init(lxi, let, lze, nbc, lim, lmx, ijk, mcd);
 
     /* 
      * Generate mesh
      */
     int  mb   = domdcomp_get_my_block();
-    int  lmx  = domdcomp_get_subdomain_points_full();
     int *mo   = domdcomp_get_blocks_master_procs();
     int *lpos = domdcomp_get_procs_ini_pos();
     int *lxim = domdcomp_get_all_subdomain_points_x();

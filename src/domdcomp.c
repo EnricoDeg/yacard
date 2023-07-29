@@ -2,7 +2,7 @@
 #include "check.h"
 #include "config_parser.h"
 #include "parameters.h"
-#include "data_struct.h"
+
 
 static int nblocks;
 static int mpro;
@@ -13,9 +13,9 @@ static int lmx;
 
 static int ijkp[3];
 static int nbsize[3];
-static int mmcd[3][2];
-static int nbc[3][2];
-static int mcd[3][2];
+static struct t_subdomain_boundary mmcd;
+static struct t_subdomain_boundary nbc;
+static struct t_subdomain_boundary mcd;
 static int ijk[3][3];
 
 static struct t_blocks nbpc;
@@ -139,9 +139,11 @@ void domdcomp_init() {
         for (int ip=0; ip<2; ip++) {
             int mm = mbcd[mb+nn*(nblocks+1)+ip*3*(nblocks+1)];
             if (mm == -1) {
-                mmcd[nn][ip] = -1;
+            	mmcd.direction[ip].coordinate[nn].value = -1;
+                mmcd.direction[ip].coordinate[nn].value = -1;
             } else {
-                mmcd[nn][ip] = idsd3((1 - ip) * (nbpc.coordinate[nn].ptr[mm] - 1),
+                mmcd.direction[ip].coordinate[nn].value = 
+                                     idsd3((1 - ip) * (nbpc.coordinate[nn].ptr[mm] - 1),
                                      ijkp[nstart],
                                      ijkp[nend],
                                      mm,
@@ -171,33 +173,33 @@ void domdcomp_init() {
         int l;
         if (ma == 1) {
             l = ll;
-            nbc[nn][0] = nbbc[mb+nn*(nblocks+1)];
-            nbc[nn][1] = nbbc[mb+nn*(nblocks+1)+1*3*(nblocks+1)];
-            mcd[nn][0] = mmcd[nn][0];
-            mcd[nn][1] = mmcd[nn][1];
+            nbc.direction[0].coordinate[nn].value = nbbc[mb+nn*(nblocks+1)];
+            nbc.direction[1].coordinate[nn].value = nbbc[mb+nn*(nblocks+1)+1*3*(nblocks+1)];
+            mcd.direction[0].coordinate[nn].value = mmcd.direction[0].coordinate[nn].value;
+            mcd.direction[1].coordinate[nn].value = mmcd.direction[1].coordinate[nn].value;
         }
         
         if (ma > 1) {
             if (lp == 0) {
                 l = ll - ( ( ll + 1 ) / ma ) * ( ma - 1 );
-                nbc[nn][0] = nbbc[mb+nn*(nblocks+1)];
-                nbc[nn][1] = BC_INTER_SUBDOMAINS;
-                mcd[nn][0] = mmcd[nn][0];
-                mcd[nn][1] = myid + mp;
+                nbc.direction[0].coordinate[nn].value = nbbc[mb+nn*(nblocks+1)];
+                nbc.direction[1].coordinate[nn].value = BC_INTER_SUBDOMAINS;
+                mcd.direction[0].coordinate[nn].value = mmcd.direction[0].coordinate[nn].value;
+                mcd.direction[1].coordinate[nn].value = myid + mp;
             }
             if (lp > 0 && lp < ma-1) {
                 l = ( ll + 1 ) / ma - 1;
-                nbc[nn][0] = BC_INTER_SUBDOMAINS;
-                nbc[nn][1] = BC_INTER_SUBDOMAINS;
-                mcd[nn][0] = myid - mp;
-                mcd[nn][1] = myid + mp;
+                nbc.direction[0].coordinate[nn].value = BC_INTER_SUBDOMAINS;
+                nbc.direction[1].coordinate[nn].value = BC_INTER_SUBDOMAINS;
+                mcd.direction[0].coordinate[nn].value = myid - mp;
+                mcd.direction[1].coordinate[nn].value = myid + mp;
             }
             if (lp == ma-1) {
                 l = ( ll + 1 ) / ma - 1;
-                nbc[nn][0] = BC_INTER_SUBDOMAINS;
-                nbc[nn][1] = nbbc[mb+nn*(nblocks+1)+3*(nblocks+1)];
-                mcd[nn][0] = myid - mp;
-                mcd[nn][1] = mmcd[nn][1];
+                nbc.direction[0].coordinate[nn].value = BC_INTER_SUBDOMAINS;
+                nbc.direction[1].coordinate[nn].value = nbbc[mb+nn*(nblocks+1)+3*(nblocks+1)];
+                mcd.direction[0].coordinate[nn].value = myid - mp;
+                mcd.direction[1].coordinate[nn].value = mmcd.direction[1].coordinate[nn].value;
             }
         }
         
@@ -302,6 +304,18 @@ int * domdcomp_get_procs_ini_pos() {
     return lpos;
 }
 
+int domdcomp_get_subdomain_points_x() {
+    return lxi;
+}
+
+int domdcomp_get_subdomain_points_y() {
+    return let;
+}
+
+int domdcomp_get_subdomain_points_z() {
+    return lze;
+}
+
 int * domdcomp_get_all_subdomain_points_x() {
     return lxim;
 }
@@ -324,6 +338,14 @@ int   domdcomp_get_my_block_points_y() {
 
 int   domdcomp_get_my_block_points_z() {
     return lzeo;
+}
+
+struct t_subdomain_boundary domdcomp_get_my_block_bc() {
+    return nbc;
+}
+
+struct t_subdomain_boundary domdcomp_get_my_block_bp() {
+    return mcd;
 }
 
 static int idsd3(int i, int j, int k, int mm, int nn) {
