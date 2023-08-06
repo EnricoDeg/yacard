@@ -42,6 +42,12 @@ int   domdcomp_get_my_block_points_y();
 
 int   domdcomp_get_my_block_points_z();
 
+int * domdcomp_get_blocks_points_x();
+
+int * domdcomp_get_blocks_points_y();
+
+int * domdcomp_get_blocks_points_z();
+
 struct t_subdomain_boundary domdcomp_get_my_block_bc();
 
 struct t_subdomain_boundary domdcomp_get_my_block_bp();

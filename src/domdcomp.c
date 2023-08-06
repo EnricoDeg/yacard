@@ -340,6 +340,18 @@ int   domdcomp_get_my_block_points_z() {
     return lzeo;
 }
 
+int * domdcomp_get_blocks_points_x() {
+    return lximb;
+}
+
+int * domdcomp_get_blocks_points_y() {
+    return letmb;
+}
+
+int * domdcomp_get_blocks_points_z() {
+    return lzemb;
+}
+
 struct t_subdomain_boundary domdcomp_get_my_block_bc() {
     return nbc;
 }
