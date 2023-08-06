@@ -15,6 +15,7 @@
 #define SV_MOMENTUM_Y 2
 #define SV_MOMENTUM_Z 3
 #define SV_ENERGY 4
+#define N_SV 5
 
 // Boundary contidions
 #define BC_NON_REFLECTIVE   10
