@@ -27,6 +27,18 @@ void grid_generator_regular_read_input(char *filename) {
     config_close();
 }
 
+double* grid_generator_regular_get_x() {
+    return grid_points_patch.coordinate[0].ptr;
+} 
+
+double* grid_generator_regular_get_y() {
+    return grid_points_patch.coordinate[1].ptr;
+} 
+
+double* grid_generator_regular_get_z() {
+    return grid_points_patch.coordinate[2].ptr;
+} 
+
 void grid_generator_regular_go(int mbk, int mb, int lmx, int *mo, int *lpos, int *lxim,
                                int *letm, int *lzem, int lxio, int leto) {
     struct t_grid_fields grid_points_global;

@@ -31,3 +31,30 @@ void grid_generator_go(int mbk, int mb, int lmx, int *mo, int *lpos, int *lxim,
         finish(component, function);
     }
 }
+
+double* grid_generator_get_x() {
+	static char function[] = "grid_generator_get_x";
+    if (grid_type == GRID_REGULAR) {
+        return grid_generator_regular_get_x();
+    } else {
+        finish(component, function);
+    }
+}
+
+double* grid_generator_get_y() {
+	static char function[] = "grid_generator_get_y";
+    if (grid_type == GRID_REGULAR) {
+        return grid_generator_regular_get_y();
+    } else {
+        finish(component, function);
+    }
+}
+
+double* grid_generator_get_z() {
+	static char function[] = "grid_generator_get_z";
+    if (grid_type == GRID_REGULAR) {
+        return grid_generator_regular_get_z();
+    } else {
+        finish(component, function);
+    }
+}
