@@ -12,6 +12,8 @@ set(SOURCE_EXE  check.c
                 numerics.c
                 grid_generator_regular.c
                 grid_generator.c
+                IO_backend_tecplot.c
+                IO.c
                 main.c)
 
 add_executable(canard ${SOURCE_EXE})
