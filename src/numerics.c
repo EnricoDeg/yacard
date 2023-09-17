@@ -14,19 +14,15 @@ struct t_blim {
     int z;
 };
 
-struct t_patch {
-    int lmx;
-    int lxi;
-    int let;
-    int lze;
-    int lim;
-    int ijk[3][3];
-    int nbc[2][3];
-    int mcd[2][3];
-};
+static struct t_subdomain_boundary nbc;
+static struct t_subdomain_boundary mcd;
+static int lmx;
+static int lxi;
+static int let;
+static int lze;
+static int lim;
 
 static struct t_blim blim;
-static struct t_patch patch;
 static double alphf, betf, fa, fb, fc, pfltk, pfltrbc;
 static double pbci[2][2][lmp+1], pbco[2][2][lmp+1];
 static double pbcot[2][2];
@@ -34,6 +30,7 @@ static double albef[2][3][5];
 static double fbc[3][5];
 static int ndf[2][2][3];
 static double sap[lmp+1];
+static int ijk[3][3];
 
 static double *xu, *yu, *xl, *yl;
 
@@ -127,9 +124,17 @@ void numerics_read_input(char *filename) {
     pfltk *= PI;
 }
 
-void numerics_init(int lxi, int let, int lze, int nbc[2][3], int lim, 
-	               int lmx, int ijk[3][3], int mcd[2][3]) {
+void numerics_init(int lxi_e, int let_e, int lze_e, struct t_subdomain_boundary nbc_e, int lim_e, 
+	               int lmx_e, struct t_subdomain_boundary mcd_e) {
 	int nstart, nend, istart, iend;
+
+	lmx = lmx_e;
+    lxi = lxi_e;
+    let = let_e;
+    lze = lze_e;
+    lim = lim_e;
+    nbc = nbc_e;
+    mcd = mcd_e;
 
 	init_coeff();
     
@@ -150,7 +155,7 @@ void numerics_init(int lxi, int let, int lze, int nbc[2][3], int lim,
         }
 
         for (int ip=0; ip<2; ip++) {
-            int np = nbc[ip][nn];
+        	int np = nbc.direction[ip].coordinate[nn].value;
             switch(np) {
                 case BC_NON_REFLECTIVE:
                 case BC_WALL_INVISCID:
@@ -177,21 +182,15 @@ void numerics_init(int lxi, int let, int lze, int nbc[2][3], int lim,
         penta(yu, yl, istart, iend, nstart, nend, 1, lim);
     }
 
-    // fill domain minimal decomposition information for internal use
-    patch.lmx = lmx;
-    patch.lxi = lxi;
-    patch.let = let;
-    patch.lze = lze;
-    patch.lim = lim;
-    for (int i=0; i<3; i++)
-        for (int j=0; j<3; j++)
-            patch.ijk[i][j] = ijk[i][j];
-    for (int nn=0; nn<3; nn++)
-        for (int ip=0; ip<2; ip++)
-            patch.nbc[ip][nn] = nbc[ip][nn];
-    for (int nn=0; nn<3; nn++)
-        for (int ip=0; ip<2; ip++)
-            patch.mcd[ip][nn] = mcd[ip][nn];
+    ijk[0][0] = lxi;
+    ijk[1][0] = let;
+    ijk[2][0] = lze;
+    ijk[0][1] = let;
+    ijk[1][1] = lze;
+    ijk[2][1] = lxi;
+    ijk[0][2] = lze;
+    ijk[1][2] = lxi;
+    ijk[2][2] = let;
 
 }
 
@@ -202,15 +201,7 @@ void numerics_deriv(double *rfield, int nn, int nz, int m) {
     int nstart = ndf[0][0][nn];
     int nend   = ndf[0][1][nn];
     int slim;
-    int lmx = patch.lmx;
-    int lxi = patch.lxi;
-    int let = patch.let;
-    int lze = patch.lze;
-    int lim = patch.lim;
-    int ijk[3][3];
-    for (int i=0; i<3; i++)
-        for (int j=0; j<3; j++)
-            ijk[i][j] = patch.ijk[i][j];
+
     int klim   = ijk[2][nn];
     int jlim   = ijk[1][nn];
     int ilim   = ijk[0][nn];
@@ -439,21 +430,6 @@ void numerics_halo_exch(double *rfield, int nt, int nrt, int n45, int m) {
     int ir = 0;
     int slim;
     int dim2;
-    int lmx = patch.lmx;
-    int lxi = patch.lxi;
-    int let = patch.let;
-    int ijk[3][3];
-    for (int i=0; i<3; i++)
-        for (int j=0; j<3; j++)
-            ijk[i][j] = patch.ijk[i][j];
-    int nbc[2][3];
-    for (int nn=0; nn<3; nn++)
-        for (int ip=0; ip<2; ip++)
-            nbc[ip][nn] = patch.nbc[ip][nn];
-    int mcd[2][3];
-    for (int nn=0; nn<3; nn++)
-        for (int ip=0; ip<2; ip++)
-            mcd[ip][nn] = patch.mcd[ip][nn];
     
     for (int nn=0; nn<3; nn++) {
     	int nz = ( 1 - nrt ) * nn;
@@ -504,7 +480,7 @@ void numerics_halo_exch(double *rfield, int nt, int nrt, int n45, int m) {
 
             double ra0;
             int ii;
-            switch(nbc[ip][nn]) {
+            switch(nbc.direction[ip].coordinate[nn].value) {
                 case(BC_INTER_STRAIGHT):
                     ra0 = 0.0;
                     ii = 1;
@@ -551,10 +527,12 @@ void numerics_halo_exch(double *rfield, int nt, int nrt, int n45, int m) {
                 }
 
                 // halo exchange
-                safe_mpi( MPI_Isend(send, slim*dim2, MPI_DOUBLE, mcd[ip][nn],
+                safe_mpi( MPI_Isend(send, slim*dim2, MPI_DOUBLE, 
+                                         mcd.direction[ip].coordinate[nn].value,
                                          iq, MPI_COMM_WORLD, &ireq[ir]) );
                 ir++,
-                safe_mpi( MPI_Irecv(recv, slim*dim2, MPI_DOUBLE, mcd[ip][nn],
+                safe_mpi( MPI_Irecv(recv, slim*dim2, MPI_DOUBLE,
+                                         mcd.direction[ip].coordinate[nn].value,
                                          ip, MPI_COMM_WORLD, &ireq[ir]) );
                 ir++;
                 
@@ -606,7 +584,7 @@ void numerics_halo_exch(double *rfield, int nt, int nrt, int n45, int m) {
             
             for (int ip=0; ip<2; ip++) {
                 int istart = ip*ijk[0][nn];
-                if (nbc[ip][nn] == BC_PERIODIC) {
+                if (nbc.direction[ip].coordinate[nn].value == BC_PERIODIC) {
                     for (int k=0; k<=ijk[2][nn]; k++) {
                         int kpp = k * (ijk[1][nn] + 1);
                         for (int j=0; j<=ijk[1][nn]; j++) {

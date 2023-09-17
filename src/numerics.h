@@ -1,3 +1,5 @@
+#include "data_struct.h"
+
 // numerics parameters
 #define alpha (4.0/9.0)
 #define beta  (1.0/36.0)
@@ -25,8 +27,8 @@ void numerics_free();
 
 void numerics_read_input(char *filename);
 
-void numerics_init(int lxi, int let, int lze, int nbc[2][3], int lim, 
-	               int lmx, int ijk[3][3], int mcd[2][3]);
+void numerics_init(int lxi, int let, int lze, struct t_subdomain_boundary nbc, int lim, 
+	               int lmx, struct t_subdomain_boundary mcd);
 
 /**
  * derivative with compact finite difference scheme

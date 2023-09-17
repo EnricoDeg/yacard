@@ -1,3 +1,6 @@
+#ifndef DATA_STRUCT_H
+#define DATA_STRUCT_H
+
 struct t_field {
     double *ptr;
 };
@@ -37,3 +40,5 @@ struct t_direction {
 struct t_subdomain_boundary {
     struct t_direction direction[2];
 };
+
+#endif

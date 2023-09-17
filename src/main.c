@@ -47,7 +47,7 @@ int main() {
     /* 
      * Numerics initialization
      */
-//    numerics_init(lxi, let, lze, nbc, lim, lmx, ijk, mcd);
+//    numerics_init(lxi, let, lze, nbc, lim, lmx, mcd);
     
     /* 
      * Generate mesh
